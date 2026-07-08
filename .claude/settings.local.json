@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(command -v pkill)",
+      "Bash(command -v taskkill)",
+      "Bash(netstat -ano)",
+      "Bash(tasklist)",
+      "Bash(wmic process *)",
+      "Bash(taskkill //PID 45048 //F)",
+      "Bash(taskkill //PID 3356 //F)"
+    ]
+  }
+}
