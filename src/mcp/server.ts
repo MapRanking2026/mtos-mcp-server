@@ -4,7 +4,14 @@ import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import server from "./index.js";
 
-const app = createMcpExpressApp();
+const app = createMcpExpressApp({
+  host: "0.0.0.0",
+  allowedHosts: [
+    "mtosmcp.mapranking.com",
+    "localhost",
+    "127.0.0.1",
+  ],
+});
 
 const transports = new Map<string, StreamableHTTPServerTransport>();
 
