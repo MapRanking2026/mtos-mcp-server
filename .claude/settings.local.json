@@ -7,7 +7,8 @@
       "Bash(tasklist)",
       "Bash(wmic process *)",
       "Bash(taskkill //PID 45048 //F)",
-      "Bash(taskkill //PID 3356 //F)"
+      "Bash(taskkill //PID 3356 //F)",
+      "Bash(sleep 2; cat /tmp/server_clickup_gate.log)"
     ]
   }
 }

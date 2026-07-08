@@ -7,42 +7,70 @@ import { getAccounts as getGoogleAdsAccounts } from "../providers/google/ads.js"
 import { getAdAccounts as getMetaAdsAccounts } from "../providers/meta/ads.js";
 import { getLocations as getGoHighLevelLocations } from "../providers/gohighlevel/index.js";
 import { getTeams as getClickUpTeams } from "../providers/clickup/index.js";
+import { getClientActiveServices } from "../providers/clickup/healthTracker.js";
+import { getTrackerDashboard } from "../providers/mapranking/tracker.js";
+import { getCheckinDashboard } from "../providers/mapranking/checkins.js";
+import { SERVICE_TO_SOURCE } from "./serviceMap.js";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const model = "gemini-2.5-flash";
 
-export const generate30DayBusinessMonthlyTouch = async (propertyId: string) => {
-  const gmbAccounts = await getGmbAccounts();
-  const ga4Accounts = await getGa4Accounts(propertyId);
-  const searchConsoleSites = await getSearchConsoleSites();
-  const googleAdsAccounts = await getGoogleAdsAccounts();
-  const metaAdsAccounts = await getMetaAdsAccounts();
-  const goHighLevelLocations = await getGoHighLevelLocations();
+export const generate30DayBusinessMonthlyTouch = async (
+  businessName: string,
+  propertyId?: string
+) => {
+  const activeServices = await getClientActiveServices(businessName);
+  const activeSources = new Set(
+    activeServices.flatMap((service) => SERVICE_TO_SOURCE[service] ?? [])
+  );
+
+  const sections: string[] = [];
+
+  if (activeSources.has("gmb")) {
+    const data = await getGmbAccounts();
+    sections.push(`Google My Business Accounts:\n${JSON.stringify(data, null, 2)}`);
+  }
+  if (activeSources.has("ga4") && propertyId) {
+    const data = await getGa4Accounts(propertyId);
+    sections.push(`Google Analytics 4 Accounts:\n${JSON.stringify(data, null, 2)}`);
+  }
+  if (activeSources.has("search_console")) {
+    const data = await getSearchConsoleSites();
+    sections.push(`Google Search Console Sites:\n${JSON.stringify(data, null, 2)}`);
+  }
+  if (activeSources.has("google_ads")) {
+    const data = await getGoogleAdsAccounts();
+    sections.push(`Google Ads Accounts:\n${JSON.stringify(data, null, 2)}`);
+  }
+  if (activeSources.has("meta_ads")) {
+    const data = await getMetaAdsAccounts();
+    sections.push(`Meta Ads Accounts:\n${JSON.stringify(data, null, 2)}`);
+  }
+  if (activeSources.has("gohighlevel")) {
+    const data = await getGoHighLevelLocations();
+    sections.push(`GoHighLevel Locations:\n${JSON.stringify(data, null, 2)}`);
+  }
+  if (activeSources.has("tracker")) {
+    const data = await getTrackerDashboard(1, businessName, 10);
+    sections.push(`Rank Tracker Data:\n${JSON.stringify(data, null, 2)}`);
+  }
+  if (activeSources.has("checkins")) {
+    const data = await getCheckinDashboard(1, businessName, 10);
+    sections.push(`Check-In Data:\n${JSON.stringify(data, null, 2)}`);
+  }
+
   const clickUpTeams = await getClickUpTeams();
+  sections.push(`ClickUp Teams:\n${JSON.stringify(clickUpTeams, null, 2)}`);
 
   const prompt = `
-    Generate a 30-day Business Monthly Touch based on the following data:
+    Generate a 30-day Business Monthly Touch for "${businessName}".
 
-    Google My Business Accounts:
-    ${JSON.stringify(gmbAccounts, null, 2)}
+    This client's active services (per ClickUp Client Health Tracker) are: ${
+      activeServices.length ? activeServices.join(", ") : "none found"
+    }.
+    Only the data sources relevant to their active services are included below.
 
-    Google Analytics 4 Accounts:
-    ${JSON.stringify(ga4Accounts, null, 2)}
-
-    Google Search Console Sites:
-    ${JSON.stringify(searchConsoleSites, null, 2)}
-
-    Google Ads Accounts:
-    ${JSON.stringify(googleAdsAccounts, null, 2)}
-
-    Meta Ads Accounts:
-    ${JSON.stringify(metaAdsAccounts, null, 2)}
-
-    GoHighLevel Locations:
-    ${JSON.stringify(goHighLevelLocations, null, 2)}
-
-    ClickUp Teams:
-    ${JSON.stringify(clickUpTeams, null, 2)}
+    ${sections.join("\n\n")}
   `;
 
   const response = await ai.models.generateContent({
