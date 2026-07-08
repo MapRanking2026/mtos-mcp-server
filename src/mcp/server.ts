@@ -1,8 +1,6 @@
-import { randomUUID } from "node:crypto";
 import type { Request, Response } from "express";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
-import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import server from "./index.js";
 
 const app = createMcpExpressApp({
@@ -14,54 +12,16 @@ const app = createMcpExpressApp({
   ],
 });
 
-const transports = new Map<string, StreamableHTTPServerTransport>();
-
-function createTransport() {
-  let transport: StreamableHTTPServerTransport;
-
-  transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: () => randomUUID(),
-    onsessioninitialized: (sessionId) => {
-      transports.set(sessionId, transport);
-    },
-  });
-
-  transport.onclose = () => {
-    const { sessionId } = transport;
-    if (sessionId) {
-      transports.delete(sessionId);
-    }
-  };
-
-  return transport;
-}
-
 const handlePost = async (req: Request, res: Response) => {
   try {
-    const sessionIdHeader = req.headers["mcp-session-id"];
-    const sessionId = Array.isArray(sessionIdHeader)
-      ? sessionIdHeader[0]
-      : sessionIdHeader;
-
-    let transport = sessionId ? transports.get(sessionId) : undefined;
-
-    if (!transport) {
-      if (sessionId || !isInitializeRequest(req.body)) {
-        res.status(400).json({
-          jsonrpc: "2.0",
-          error: {
-            code: -32000,
-            message: "Bad Request: No valid session ID provided",
-          },
-          id: null,
-        });
-        return;
-      }
-
-      transport = createTransport();
-      await server.connect(transport);
-    }
-
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+    });
+    res.on("close", () => {
+      transport.close();
+      server.close();
+    });
+    await server.connect(transport);
     await transport.handleRequest(req, res, req.body);
   } catch (error) {
     if (!res.headersSent) {
