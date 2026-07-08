@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { Request, Response } from "express";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
@@ -35,7 +36,7 @@ function createTransport() {
   return transport;
 }
 
-app.post("/mcp", async (req, res) => {
+const handlePost = async (req: Request, res: Response) => {
   try {
     const sessionIdHeader = req.headers["mcp-session-id"];
     const sessionId = Array.isArray(sessionIdHeader)
@@ -74,11 +75,18 @@ app.post("/mcp", async (req, res) => {
       });
     }
   }
-});
+};
 
-app.get("/mcp", async (_req, res) => {
+const handleGet = async (_req: Request, res: Response) => {
   res.status(405).set("Allow", "POST").send("Method Not Allowed");
-});
+};
+
+// Serve the MCP endpoint at both "/" and "/mcp" since some clients (e.g.
+// ClickUp's "Connect an MCP Server" form) expect the bare URL to work.
+app.post("/mcp", handlePost);
+app.get("/mcp", handleGet);
+app.post("/", handlePost);
+app.get("/", handleGet);
 
 const PORT = process.env.PORT || 3333;
 
